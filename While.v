@@ -71,7 +71,9 @@ Fixpoint eval_expr (env: state) (e: expr) : val :=
   match e with
   | Const n => n
   | Var v => env v
-  | _ => 0
+  | Add e1 e2 => (eval_expr env e1) + (eval_expr env e2)
+  | Mul e1 e2 => (eval_expr env e1) * (eval_expr env e2)
+  | Sub e1 e2 => (eval_expr env e1) - (eval_expr env e2)
   end.
 
 Compute
@@ -87,32 +89,46 @@ Fixpoint eval_cond (env: state) (c: cond) : bool :=
   match c with
   | Eq e1 e2 => Z.eqb (eval_expr env e1) (eval_expr env e2)
   | Lt e1 e2 => Z.ltb (eval_expr env e1) (eval_expr env e2)
-  | _ => false
+  | And c1 c2 => andb (eval_cond env c1) (eval_cond env c2)
+  | Or c1 c2 => orb (eval_cond env c1) (eval_cond env c2)
+  | Not c => negb (eval_cond env c)
   end.
 
 Fixpoint eval_condP (env: state) (c: cond) : Prop :=
   match c with
   | Eq e1 e2 => (eval_expr env e1) = (eval_expr env e2)
   | Lt e1 e2 => (eval_expr env e1) < (eval_expr env e2)
-  | _ => False
+  | And c1 c2 => (eval_condP env c1) /\ (eval_condP env c2)
+  | Or c1 c2 => (eval_condP env c1) \/ (eval_condP env c2)
+  | Not c => ~ (eval_condP env c)
   end.
 
 Lemma eval_cond_true:
   forall env c, eval_condP env c <-> eval_cond env c = true.
 Proof.
-Admitted.
+  induction c.
+  - simpl. rewrite Z.eqb_eq. reflexivity. 
+  - simpl. rewrite Z.ltb_lt. reflexivity.
+  - simpl. rewrite IHc1, IHc2. rewrite Bool.andb_true_iff. reflexivity.
+  - simpl. rewrite IHc1, IHc2. rewrite Bool.orb_true_iff. reflexivity.
+  - simpl. rewrite IHc. rewrite Bool.negb_true_iff. destruct (eval_cond env c). intuition. intuition.
+Qed. 
+
 
 Lemma eval_cond_false:
   forall env c, ~ eval_condP env c <-> eval_cond env c = false.
 Proof.
-Admitted.
+  intros env c. rewrite eval_cond_true. destruct (eval_cond env c). intuition. intuition.
+Qed.
+
 
 Lemma eval_cond_dec:
   forall env c, {eval_condP env c} + {~ eval_condP env c}.
 Proof.
-Admitted.                  (* à remplacer par Defined. quand vous aurez fini. *)
-(* Defined permet de rendre les définitions *transparentes*, et pourront donc
-être évaluées par la commande Compute. *)
+  intros env c. destruct (eval_cond env c) eqn:H.
+  - left. apply eval_cond_true. assumption.
+  - right. apply eval_cond_false. assumption.
+Defined.
 
 Compute
   let s := fun _ => 0 in

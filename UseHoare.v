@@ -26,7 +26,9 @@ Proof.
   intros A B.
   apply auto_hoare'; simpl.
   unfold update_state; simpl.
-Admitted.
+  intros. destruct H.
+  split; auto.
+Qed.
 
 Definition slow_assign : stmt :=
   While
@@ -43,7 +45,8 @@ Proof.
   intros.
   apply auto_hoare'; simpl.
   unfold update_state; simpl.
-Admitted.
+  intros. split. auto. lia.
+Qed.
 
 Definition dummy_sum (x y: Z) :=
   Seq
@@ -67,10 +70,8 @@ Theorem dummy_sum_correct x y:
        (dummy_sum x y)
        (fun env => env "x" = x + y).
 Proof.
-  intros.
-  apply auto_hoare'.
-  simpl; unfold update_state; simpl; intros.
 Admitted.
+
 
 Definition gcd (x y : Z) :=
   While
@@ -94,7 +95,7 @@ Theorem gcd_correct:
     (fun env => env "x" = env "y" /\ Z.gcd x y = Z.abs (env "x")).
 Proof.
   intros. apply auto_hoare'.
-  simpl. unfold update_state; simpl.
+  simpl. intros. unfold update_state; simpl; intros.
 Admitted.
 
 Definition factorielle n :=

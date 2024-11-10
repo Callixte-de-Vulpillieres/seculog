@@ -41,8 +41,27 @@ Inductive bigstep : state -> stmt -> state -> Prop :=
   eval_condP env c
   -> bigstep env s1 env'
   -> bigstep env (If c s1 s2) env'
+| bigstep_if_false:
+  forall env c s1 s2 env',
+  ~ eval_condP env c
+  -> bigstep env s2 env'
+  -> bigstep env (If c s1 s2) env'
+| bigstep_while_true:
+  forall env c I s env' env'',
+  eval_condP env c
+  -> bigstep env s env'
+  -> bigstep env' (While c I s) env''
+  -> bigstep env (While c I s) env''
+| bigstep_while_false:
+  forall env c I s,
+  ~ eval_condP env c
+  -> bigstep env (While c I s) env.
+
+(** ** Exemples d'exécution *)
+(** * Question 1.2 *)
+
+(** On peut maintenant prouver quelques propriétés de la sémantique à grands pas *)
 (* à compléter *)
-.
 
 (** * 2 - Quelques détails sur des tactiques utiles en Coq  *)
 
@@ -62,13 +81,13 @@ Proof.
   existentielle et remplacé [env2] dans le second sous-but (le seul qui reste à
   présent) par sa valeur [update_env env "x" 1]. *)
   apply bigstep_assign.
-  Restart.                      (* Cette commande recommence la preuve depuis le début: on peut aussi utiliser [constructor] et [econstructor] *)
-  intros.
+                      (* Cette commande recommence la preuve depuis le début: on peut aussi utiliser [constructor] et [econstructor] *)
+  (* intros.
   econstructor.                 (* [constructor] ne fonctionne pas ici, car on
   doit donner l'environnement intermédiaire pour [eval_seq]. [econstructor]
   fonctionne, en revanche.*)
   constructor.
-  constructor.
+  constructor. *)
 Qed.
 
 Lemma test_bigstep_while:
@@ -84,7 +103,7 @@ Lemma test_bigstep_while:
       (update_state (update_state env "x" 1) "x" 0).
 Proof.
   (* La preuve suivante devrait être correcte *)
-  (* intros env EQ.
+  intros env EQ.
   eapply bigstep_while_true.
   - simpl. rewrite EQ. lia.
   - apply bigstep_assign.
@@ -92,6 +111,6 @@ Proof.
     + simpl. rewrite EQ. unfold update_state; simpl. lia.
     + apply bigstep_assign.
     + simpl. rewrite EQ. simpl. apply bigstep_while_false.
-      simpl. unfold update_state; simpl. lia. *)
-Admitted.
+      simpl. unfold update_state; simpl. lia.
+Qed.
 

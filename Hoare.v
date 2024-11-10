@@ -10,18 +10,21 @@ Require Import String.
 Open Scope string_scope.
 Require Import While Tactics WhileBigStep.
 
-(** * 3 - Logique de Hoare  *)
+(** * 6 - Logique de Hoare  *)
 
 Definition pred := state -> Prop.
 
 Definition valid_hoare_triple (P: pred) (s: stmt) (Q: pred) : Prop :=
   forall env1 env2, P env1 -> bigstep env1 s env2 -> Q env2.
 
-(** ** Question 3.1  *)
+(** ** Question 6.1  *)
 
 Theorem hoare_skip: forall P, valid_hoare_triple P Skip P.
 Proof.
-Admitted.
+  intros. unfold valid_hoare_triple. intros. inversion H0. subst. auto.
+Qed.
+
+(** ** Question 6.2  *)
 
 (* Règle [SÉQUENCE] dans le sujet *)
 Theorem hoare_seq:
@@ -30,7 +33,12 @@ Theorem hoare_seq:
   -> valid_hoare_triple Q s2 R
   -> valid_hoare_triple P (Seq s1 s2) R.
 Proof.
-Admitted.
+  intros. unfold valid_hoare_triple. intros. inversion H2; subst.
+  eapply H0.
+  - eapply H. eassumption. apply H6.
+  - assumption.
+Qed.
+  
 
 (* Règle [CONDITION]. *)
 Theorem hoare_if:
@@ -39,7 +47,18 @@ Theorem hoare_if:
   -> valid_hoare_triple (fun env => P env /\ ~ eval_condP env c) s2 Q
   -> valid_hoare_triple P (If c s1 s2) Q.
 Proof.
-Admitted.
+  intros. unfold valid_hoare_triple. intros. inversion H2; subst.
+  - eapply H.
+    + split.
+      * apply H1.
+      * apply H8.
+    + assumption.
+  - eapply H0.
+    + split.
+      * apply H1.
+      * apply H8.
+    + assumption.
+Qed.
 
 (* Règle [AFFECTATION]. On utilise [update_env] pour décrire l'effet de P[x <- E]. *)
 Theorem hoare_assign:
@@ -47,7 +66,9 @@ Theorem hoare_assign:
   valid_hoare_triple
     (fun env => P (update_state env x (eval_expr env e))) (Assign x e) P.
 Proof.
-Admitted.
+  intros. unfold valid_hoare_triple. intros. inversion H0; subst.
+  unfold update_state. simpl. assumption.
+Qed.
 
 
 (* Règle [STRENGTHEN]. *)
@@ -57,7 +78,11 @@ Theorem hoare_strengthen_pre:
   -> (forall env, P' env -> P env)
   -> valid_hoare_triple P' s Q.
 Proof.
-Admitted.
+  intros. unfold valid_hoare_triple. intros. eapply H.
+  - apply H0. eassumption.
+  - assumption.
+Qed.
+  
 
 (* Règle [WEAKEN]. *)
 Theorem hoare_weaken_post:
@@ -66,7 +91,10 @@ Theorem hoare_weaken_post:
   -> (forall env, Q env -> Q' env)
   -> valid_hoare_triple P s Q'.
 Proof.
-Admitted.
+  intros. unfold valid_hoare_triple. intros. eapply H0. eapply H.
+  - eassumption.
+  - assumption.
+Qed.
 
 (* Règle [WHILE]. *)
 Theorem hoare_while:
@@ -75,9 +103,29 @@ Theorem hoare_while:
    -> valid_hoare_triple
         P (While c I s) (fun env => P env /\ ~ eval_condP env c).
 Proof.
-Admitted.
+  intros.
+  remember (While c I s) as w.
+  unfold valid_hoare_triple. intros.
+  induction H1.
+  - discriminate.
+  - discriminate.
+  - discriminate.
+  - discriminate.
+  - discriminate.
+  - inversion Heqw. subst. apply IHbigstep2.
+    * assumption.
+    * unfold valid_hoare_triple in H. eapply H.
+      + split.
+        ** eassumption.
+        ** assumption.
+      + assumption.
+  - split.
+    * assumption.
+    * inversion Heqw. subst. assumption.
+Qed.
+ 
 
-(** ** Question 3.2  *)
+(** ** Question 6.7  *)
 Lemma hoare_while':
   forall (P Q : pred ) c s I,
   valid_hoare_triple (fun env => I env /\ eval_condP env c) s I
@@ -85,7 +133,13 @@ Lemma hoare_while':
   -> (forall env, I env /\ ~eval_condP env c -> Q env)
   -> valid_hoare_triple P (While c I s) Q.
 Proof.
-Admitted.
+  intros. eapply hoare_weaken_post.
+  - eapply hoare_strengthen_pre.
+    + eapply hoare_while. eassumption.
+    + intros. apply H0. assumption.
+  - intros. apply H1. assumption.
+Qed.
+
 
 Open Scope Z_scope.
 
@@ -102,7 +156,7 @@ Definition factorielle n :=
     ).
 
 (* Cette preuve devrait passer *)
-(*
+
 Lemma fact_correct_first_try:
   forall n, n >= 0 ->
             valid_hoare_triple (fun env => env "n" = n) (factorielle n) (fun env => env "res" = Zfact n).
@@ -123,7 +177,8 @@ Proof.
     rewrite Zfact_neg. 2: lia. lia.
   - unfold update_state; simpl. auto.
 Qed.
-*)
+
+(* Elle est passée !*)
 
 Fixpoint vars_affected (s: stmt) : list var :=
   match s with
@@ -158,7 +213,22 @@ Lemma bigstep_vars_affected:
   -> forall x, ~ In x (vars_affected s)
   -> env1 x = env2 x.
 Proof.
-Admitted.
+  intros.
+  induction H.
+  - reflexivity.
+  - simpl in H0. unfold update_state. destruct (var_eq x x0).
+    + subst. exfalso. apply H0. left. reflexivity.
+    + reflexivity.
+  - eapply eq_trans.
+    + apply IHbigstep1. intros Habs. apply H0. simpl. apply in_or_app. left. assumption.
+    + apply IHbigstep2. intros Habs. apply H0. simpl. apply in_or_app. right. assumption.
+  - apply IHbigstep. intros Habs. apply H0. simpl. apply in_or_app. left. assumption.
+  - apply IHbigstep. intros Habs. apply H0. simpl. apply in_or_app. right. assumption.
+  - eapply eq_trans.
+    + apply IHbigstep1. simpl in H0. eassumption.
+    + apply IHbigstep2. simpl in H0. eassumption.
+  - reflexivity.
+Qed.
 
 Lemma auto_hoare_while:
   forall
@@ -178,21 +248,65 @@ Lemma auto_hoare_while:
     Q env2.
 Proof.
   intros c I s Q IHs env1 env2 Itrue CondTrue CondFalse Heval.
-  dependent induction Heval.
-(*
-  clear IHHeval1.
-  eapply IHHeval2 with (s0:=s) (I0:=I) (c0:=c); auto.
- *)
-Admitted.
+  dependent induction Heval. 
+    - clear IHHeval1. eapply IHHeval2 with (s:=s) (I:=I) (c:=c); auto.
+      + eapply IHs.
+        * apply (CondTrue env); auto.
+        * auto.
+      + intros. apply CondTrue.
+        * intros. eapply eq_trans. 
+          ** eapply bigstep_vars_affected; eauto.
+          ** apply H0. apply H3.
+        * auto.
+        * auto.
+      + intros. apply CondFalse.
+        * intros. eapply eq_trans. 
+          ** eapply bigstep_vars_affected; eauto.
+          ** apply H0. apply H3.
+        * auto.
+        * auto.
+    - eapply CondFalse.
+      + intros. reflexivity.
+      + auto.
+      + auto.
+Qed.
+
 
 Theorem auto_hoare: forall s Q, valid_hoare_triple (wp s Q) s Q.
 Proof.
-Admitted.
+  intros.
+  dependent induction s.
+  - apply hoare_skip.
+  - apply hoare_assign.
+  - eapply hoare_seq.
+    + apply IHs1.
+    + apply IHs2.
+  - simpl. unfold valid_hoare_triple. intros. destruct H. inversion H0; subst.
+    + eapply IHs1.
+      * apply H. assumption.
+      * assumption.
+    + eapply IHs2.
+      * apply H1. assumption.
+      * assumption.
+  - simpl. unfold valid_hoare_triple. intros. destruct H. eapply auto_hoare_while.
+    + apply IHs.
+    + apply H.
+    + intros.
+      apply H1 in H3.
+      * assumption.
+      * apply H2.
+      * assumption.
+    + apply H1.
+    + assumption.
+Qed.
 
 Lemma auto_hoare':
   forall (P: pred) s Q,
   (forall env, P env -> wp s Q env)
   -> valid_hoare_triple P s Q.
 Proof.
-Admitted.
+  intros. eapply hoare_strengthen_pre.
+  - apply auto_hoare.
+  - assumption.
+Qed.
 
